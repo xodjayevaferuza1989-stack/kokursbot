@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tekshiruv</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root { --bg:#fff; --fg:#111; --muted:#667; --ok:#1a9d4b; --bad:#d33; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#17212b; --fg:#f2f2f2; --muted:#9aa; } }
+  html,body { height:100%; margin:0; background:var(--bg); color:var(--fg);
+              font-family:-apple-system,system-ui,Segoe UI,Roboto,sans-serif; }
+  body { display:flex; flex-direction:column; align-items:center; justify-content:center;
+         text-align:center; padding:24px; box-sizing:border-box; }
+  .icon { font-size:64px; margin-bottom:12px; }
+  h1 { font-size:20px; margin:0 0 8px; }
+  p { color:var(--muted); margin:0; max-width:320px; line-height:1.4; }
+  .ok { color:var(--ok); } .bad { color:var(--bad); }
+</style>
+</head>
+<body>
+  <div class="icon" id="icon">⏳</div>
+  <h1 id="title">Tekshirilmoqda...</h1>
+  <p id="msg">Iltimos, kuting.</p>
+
+<script>
+const tg = window.Telegram && window.Telegram.WebApp;
+if (tg) { tg.ready(); tg.expand(); }
+
+function show(icon, title, msg, cls) {
+  document.getElementById('icon').textContent = icon;
+  const t = document.getElementById('title');
+  t.textContent = title; t.className = cls || '';
+  document.getElementById('msg').textContent = msg;
+}
+
+async function sha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Doimiy qurilma ID: localStorage + cookie + IndexedDB ga bir xil qiymat yoziladi
+function randomId() {
+  const a = new Uint8Array(16); crypto.getRandomValues(a);
+  return Array.from(a).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+function readCookie(n) {
+  const m = document.cookie.match(new RegExp('(?:^|; )' + n + '=([^;]*)'));
+  return m ? decodeURIComponent(m[1]) : null;
+}
+function idbGet() {
+  return new Promise(res => {
+    try {
+      const r = indexedDB.open('dv', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('k');
+      r.onsuccess = () => {
+        const g = r.result.transaction('k').objectStore('k').get('did');
+        g.onsuccess = () => res(g.result || null);
+        g.onerror = () => res(null);
+      };
+      r.onerror = () => res(null);
+    } catch (e) { res(null); }
+  });
+}
+function idbSet(v) {
+  return new Promise(res => {
+    try {
+      const r = indexedDB.open('dv', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('k');
+      r.onsuccess = () => {
+        const t = r.result.transaction('k', 'readwrite');
+        t.objectStore('k').put(v, 'did'); t.oncomplete = () => res();
+      };
+      r.onerror = () => res();
+    } catch (e) { res(); }
+  });
+}
+async function getDid() {
+  let d = null;
+  try { d = localStorage.getItem('did'); } catch (e) {}
+  d = d || readCookie('did') || await idbGet();
+  if (!d) d = randomId();
+  try { localStorage.setItem('did', d); } catch (e) {}
+  document.cookie = 'did=' + d + '; max-age=31536000; path=/; SameSite=None; Secure';
+  await idbSet(d);
+  return d;
+}
+
+function canvasHash() {
+  try {
+    const c = document.createElement('canvas'); c.width = 240; c.height = 60;
+    const x = c.getContext('2d');
+    x.textBaseline = 'top'; x.font = '16px Arial';
+    x.fillStyle = '#f60'; x.fillRect(10, 5, 100, 30);
+    x.fillStyle = '#069'; x.fillText('Konkurs fp \u{1F3C6} 123', 4, 12);
+    x.fillStyle = 'rgba(102,204,0,.7)'; x.fillText('Konkurs fp \u{1F3C6} 123', 6, 14);
+    return c.toDataURL();
+  } catch (e) { return 'na'; }
+}
+function webglInfo() {
+  try {
+    const gl = document.createElement('canvas').getContext('webgl');
+    const ext = gl.getExtension('WEBGL_debug_renderer_info');
+    return ext ? gl.getParameter(ext.UNMASKED_VENDOR_WEBGL) + '|' + gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : 'na';
+  } catch (e) { return 'na'; }
+}
+
+async function fingerprint() {
+  const n = navigator, s = screen;
+  const parts = [
+    canvasHash(), webglInfo(),
+    s.width + 'x' + s.height, s.colorDepth, window.devicePixelRatio,
+    n.hardwareConcurrency, n.deviceMemory, n.maxTouchPoints,
+    n.platform, n.language, (n.languages || []).join(','),
+    Intl.DateTimeFormat().resolvedOptions().timeZone, new Date().getTimezoneOffset(),
+    n.userAgent
+  ];
+  return sha256(parts.join('||'));
+}
+
+(async () => {
+  if (!tg || !tg.initData) {
+    show('⚠️', 'Telegram ichida oching', 'Bu sahifa faqat bot orqali ochiladi.', 'bad');
+    return;
+  }
+  try {
+    const [did, fp] = await Promise.all([getDid(), fingerprint()]);
+    const r = await fetch('/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ initData: tg.initData, did, fp, platform: tg.platform || '' })
+    });
+    const j = await r.json();
+    if (!j.ok) { show('⚠️', 'Xatolik', j.error || 'Qayta urinib ko\'ring.', 'bad'); return; }
+    if (j.allowed) {
+      show('✅', 'Tasdiqlandi', 'Botga qaytib, ovoz bera olasiz.', 'ok');
+      setTimeout(() => tg.close(), 1500);
+    } else {
+      show('⛔', 'Rad etildi', 'Bu qurilmadan boshqa akkaunt allaqachon qatnashgan.', 'bad');
+    }
+  } catch (e) {
+    show('⚠️', 'Tarmoq xatosi', 'Internetni tekshirib, qayta oching.', 'bad');
+  }
+})();
+</script>
+</body>
+</html>
