@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Admin panel</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root{--bg1:#060a18;--bg2:#101a3d;--fg:#eef1ff;--muted:#98a3c9;--card:rgba(255,255,255,.07);--line:rgba(255,255,255,.13);
+    --a1:#6d8dff;--a2:#9b6bff;--a3:#22d3ee;--ok:#2ee59d;--bad:#ff5c7a;--dot:255,255,255;--blob:.32;--shadow:0 18px 50px rgba(0,0,0,.45)}
+  [data-theme=light]{--bg1:#eef2ff;--bg2:#d9e2ff;--fg:#141a3a;--muted:#59628a;--card:rgba(255,255,255,.76);--line:rgba(40,55,120,.14);
+    --a1:#4f6dff;--a2:#8a4fff;--a3:#0ab3d6;--ok:#12b97a;--bad:#e5385a;--dot:60,80,200;--blob:.22;--shadow:0 16px 40px rgba(60,80,160,.2)}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;margin:0}
+  body{background:radial-gradient(120% 80% at 50% 0,var(--bg2),var(--bg1));color:var(--fg);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;overflow:hidden}
+  .aurora{position:fixed;inset:0;overflow:hidden;pointer-events:none}
+  .aurora i{position:absolute;width:60vmax;height:60vmax;border-radius:50%;filter:blur(80px);opacity:var(--blob)}
+  .aurora i:nth-child(1){background:var(--a1);left:-24vmax;top:-20vmax;animation:d1 18s ease-in-out infinite alternate}
+  .aurora i:nth-child(2){background:var(--a2);right:-28vmax;bottom:-18vmax;animation:d2 21s ease-in-out infinite alternate}
+  @keyframes d1{to{transform:translate(14vmax,10vmax)}}@keyframes d2{to{transform:translate(-12vmax,-12vmax)}}
+  .app{position:relative;height:100%;display:flex;flex-direction:column;max-width:560px;margin:0 auto}
+  header{padding:max(16px,env(safe-area-inset-top)) 18px 8px;display:flex;align-items:center;gap:12px}
+  .logo{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;font-size:22px;
+    background:linear-gradient(135deg,var(--a1),var(--a2));box-shadow:0 8px 22px rgba(109,141,255,.4)}
+  header h1{font-size:18px;margin:0;font-weight:750}header p{margin:2px 0 0;font-size:12.5px;color:var(--muted)}
+  .role{margin-left:auto;font-size:11.5px;font-weight:650;padding:5px 10px;border-radius:99px;border:1px solid var(--line);background:var(--card)}
+  #view{flex:1;overflow-y:auto;padding:8px 16px 110px;-webkit-overflow-scrolling:touch}
+  #view>*{animation:rise .5s cubic-bezier(.2,.9,.3,1.1) both}
+  #view>*:nth-child(2){animation-delay:.05s}#view>*:nth-child(3){animation-delay:.1s}#view>*:nth-child(4){animation-delay:.15s}
+  @keyframes rise{from{opacity:0;transform:translateY(16px)}}
+  nav{position:fixed;left:50%;transform:translateX(-50%);bottom:max(12px,env(safe-area-inset-bottom));width:calc(100% - 24px);max-width:536px;
+    display:flex;gap:4px;padding:6px;border-radius:22px;background:var(--card);border:1px solid var(--line);
+    -webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);box-shadow:var(--shadow)}
+  nav button{flex:1;border:0;background:none;color:var(--muted);font:600 10.5px inherit;font-family:inherit;padding:8px 2px;border-radius:16px;
+    display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;transition:.25s}
+  nav button span{font-size:19px;transition:transform .25s}
+  nav button.on{color:var(--fg);background:linear-gradient(135deg,rgba(109,141,255,.3),rgba(155,107,255,.25))}
+  nav button.on span{transform:translateY(-2px) scale(1.15)}
+  .card,.stat,.row,.grp{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px;margin-bottom:10px;
+    -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)}
+  h3{margin:0 0 10px;font-size:14px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+  .stat{margin:0;display:flex;flex-direction:column;gap:2px}.stat .ic{font-size:22px}
+  .stat b{font-size:26px;letter-spacing:-.02em}.stat span{font-size:12.5px;color:var(--muted)}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}.chips i,.tag{font-style:normal;font-size:12px;padding:5px 10px;border-radius:99px;
+    background:rgba(var(--dot),.08);border:1px solid var(--line)}
+  .tag.bad{color:var(--bad);border-color:rgba(255,92,122,.4)}
+  .inp{width:100%;padding:13px 14px;border-radius:14px;border:1px solid var(--line);background:rgba(var(--dot),.06);color:var(--fg);
+    font:15px inherit;font-family:inherit;outline:none;margin-bottom:10px;transition:border-color .2s,box-shadow .2s}
+  .inp:focus{border-color:var(--a1);box-shadow:0 0 0 3px rgba(109,141,255,.2)}textarea.inp{min-height:130px;resize:vertical}
+  .btn{width:100%;padding:13px;border:0;border-radius:14px;cursor:pointer;color:#fff;font-weight:650;font-size:15px;font-family:inherit;
+    background:linear-gradient(135deg,var(--a1),var(--a2));box-shadow:0 8px 22px rgba(109,141,255,.35);transition:transform .15s;margin-bottom:10px}
+  .btn:active{transform:scale(.97)}.btn.ghost{background:rgba(var(--dot),.08);color:var(--fg);box-shadow:none;border:1px solid var(--line)}
+  .btn.danger{background:linear-gradient(135deg,var(--bad),#ff8a5c);box-shadow:0 8px 22px rgba(255,92,122,.3)}.btn[hidden]{display:none}
+  .row{display:flex;align-items:center;gap:12px;cursor:pointer;transition:transform .15s}.row:active{transform:scale(.98)}
+  .av{width:40px;height:40px;border-radius:14px;flex:none;display:grid;place-items:center;font-weight:750;
+    background:linear-gradient(135deg,var(--a3),var(--a1));color:#fff}
+  .rt{min-width:0;flex:1}.rt b{display:block;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rt span{font-size:12px;color:var(--muted)}.empty{text-align:center;color:var(--muted);padding:30px 0}
+  .seg{display:flex;gap:6px;margin-bottom:10px}.seg button{flex:1;padding:11px 4px;border-radius:12px;border:1px solid var(--line);
+    background:rgba(var(--dot),.05);color:var(--muted);font:600 12.5px inherit;font-family:inherit;cursor:pointer;transition:.2s}
+  .seg button.on{color:#fff;border-color:transparent;background:linear-gradient(135deg,var(--a1),var(--a2))}
+  .sw{display:flex;align-items:center;justify-content:space-between;padding:9px 2px;font-size:14px;cursor:pointer}
+  .sw input{display:none}.sw u{width:44px;height:26px;border-radius:99px;background:rgba(var(--dot),.15);position:relative;transition:.25s;text-decoration:none}
+  .sw u::after{content:"";position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.25s}
+  .sw input:checked+u{background:var(--ok)}.sw input:checked+u::after{transform:translateX(18px)}
+  .msg{font-size:13.5px;padding:11px 13px;border-radius:12px;margin-bottom:10px}
+  .msg.bad{background:rgba(255,92,122,.14);border:1px solid rgba(255,92,122,.4)}.msg.ok{background:rgba(46,229,157,.14);border:1px solid rgba(46,229,157,.4)}
+  .sheet{position:fixed;inset:0;z-index:20;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.5);
+    opacity:0;pointer-events:none;transition:opacity .25s}.sheet.open{opacity:1;pointer-events:auto}
+  .sheet>div{width:100%;max-width:560px;max-height:85%;overflow-y:auto;background:var(--bg2);border:1px solid var(--line);
+    border-radius:26px 26px 0 0;padding:20px 18px max(20px,env(safe-area-inset-bottom));transform:translateY(100%);transition:transform .35s cubic-bezier(.2,.9,.3,1)}
+  .sheet.open>div{transform:none}.kv{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+  .kv span{color:var(--muted)}
+  .toast{position:fixed;left:50%;top:max(14px,env(safe-area-inset-top));transform:translate(-50%,-90px);z-index:30;padding:11px 18px;border-radius:14px;
+    font-size:14px;font-weight:600;background:var(--bg2);border:1px solid var(--line);box-shadow:var(--shadow);transition:transform .4s cubic-bezier(.2,.9,.3,1.2)}
+  .toast.show{transform:translate(-50%,0)}.toast.bad{border-color:var(--bad)}.toast.ok{border-color:var(--ok)}
+  @media (prefers-reduced-motion:reduce){*{animation-duration:.001s!important;transition-duration:.001s!important}}
+</style>
+</head>
+<body>
+<div class="aurora"><i></i><i></i></div>
+<div class="app">
+  <header><div class="logo">⚙️</div><div><h1>Admin panel</h1><p id="who">Yuklanmoqda…</p></div><div class="role" id="role"></div></header>
+  <div id="view"></div>
+  <nav id="nav"></nav>
+</div>
+<div class="sheet" id="sheet"><div id="sheetBody"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const tg = window.Telegram && window.Telegram.WebApp;
+const root = document.documentElement;
+const dark = tg && tg.colorScheme ? tg.colorScheme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+root.dataset.theme = dark ? 'dark' : 'light';
+if (tg) { try { tg.ready(); tg.expand(); const c = dark ? '#060a18' : '#eef2ff'; tg.setHeaderColor(c); tg.setBackgroundColor(c); } catch (e) {} }
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const view = $('#view');
+let ME = null, TAB = 'home';
+
+function toast(t, kind) {
+  const el = $('#toast'); el.textContent = t; el.className = 'toast show ' + (kind || '');
+  clearTimeout(toast.t); toast.t = setTimeout(() => el.className = 'toast', 2600);
+  try { tg.HapticFeedback.notificationOccurred(kind === 'bad' ? 'error' : 'success'); } catch (e) {}
+}
+async function api(path, body) {
+  try {
+    const r = await fetch('/api/admin/' + path, { method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Init-Data': (tg && tg.initData) || '' }, body: JSON.stringify(body || {}) });
+    const j = await r.json();
+    if (!j.ok) { toast(j.error || 'Xatolik', 'bad'); return null; }
+    return j;
+  } catch (e) { toast('Tarmoq xatosi', 'bad'); return null; }
+}
+function ask(text, yes) {
+  if (tg && tg.showConfirm) tg.showConfirm(text, ok => ok && yes()); else if (confirm(text)) yes();
+}
+function openSheet(html) { $('#sheetBody').innerHTML = html; $('#sheet').classList.add('open'); }
+function closeSheet() { $('#sheet').classList.remove('open'); }
+$('#sheet').addEventListener('click', e => { if (e.target.id === 'sheet') closeSheet(); });
+function countUp(el, n) {
+  const t0 = performance.now();
+  (function f(t) { const k = Math.min(1, (t - t0) / 700); el.textContent = Math.round(n * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(f); })(t0);
+}
+const has = p => !p || (p === 'owner' ? ME.owner : ME.perms.includes(p));
+
+/* ---------- bosh ---------- */
+function vHome() {
+  const s = ME.stats;
+  view.innerHTML = `<div class="grid">${[['👥', 'Foydalanuvchilar', s.users], ['🆕', 'Bugun qo\'shilgan', s.today], ['🥊', 'Faol battle', s.battles],
+    ['🎁', 'Faol konkurs', s.konkurs], ['📢', 'Majburiy kanal', s.channels], ['⛔', 'Bloklangan', s.banned]]
+    .map(([i, l, n]) => `<div class="stat"><div class="ic">${i}</div><b data-n="${n}">0</b><span>${l}</span></div>`).join('')}</div>
+    <div class="card"><h3>Sizning imkoniyatlaringiz</h3><div class="chips">${ME.owner ? '<i>👑 Hammasi (ega)</i>'
+    : ME.perms.map(p => `<i>${esc(ME.all_perms[p])}</i>`).join('') || '<i>Hozircha yo\'q</i>'}</div></div>`;
+  view.querySelectorAll('[data-n]').forEach(el => countUp(el, +el.dataset.n));
+}
+
+/* ---------- foydalanuvchilar ---------- */
+let UQ = '', UP = 0;
+function vUsers() {
+  view.innerHTML = `<input class="inp" id="q" placeholder="🔎 ID, @username yoki ism" value="${esc(UQ)}"><div id="list"></div><button class="btn ghost" id="more" hidden>Yana ko'rsatish</button>`;
+  let tm; $('#q').oninput = e => { clearTimeout(tm); tm = setTimeout(() => { UQ = e.target.value; loadUsers(true); }, 350); };
+  $('#more').onclick = () => { UP++; loadUsers(false); };
+  loadUsers(true);
+}
+async function loadUsers(reset) {
+  if (reset) UP = 0;
+  const j = await api('users', { q: UQ, page: UP }); if (!j) return;
+  const list = $('#list'); if (!list) return;
+  if (reset) list.innerHTML = '';
+  list.insertAdjacentHTML('beforeend', j.items.map(u => `<div class="row" data-id="${u.id}"><div class="av">${esc((u.full_name || u.username || '?')[0].toUpperCase())}</div>
+    <div class="rt"><b>${esc(u.full_name || u.username || u.id)}</b><span>${u.username ? '@' + esc(u.username) + ' · ' : ''}${u.id}</span></div>
+    ${u.banned ? '<em class="tag bad">blok</em>' : ''}</div>`).join(''));
+  if (reset && !j.items.length) list.innerHTML = '<p class="empty">Topilmadi</p>';
+  $('#more').hidden = (UP + 1) * 20 >= j.total;
+  list.querySelectorAll('.row').forEach(r => r.onclick = () => openUser(+r.dataset.id));
+}
+async function openUser(id) {
+  const j = await api('user', { id }); if (!j) return;
+  if (!j.found) return toast('Topilmadi', 'bad');
+  const kv = (k, v) => `<div class="kv"><span>${k}</span><b>${v}</b></div>`;
+  openSheet(`<h3 style="font-size:17px">${esc(j.name || j.id)} ${j.banned ? '<em class="tag bad">bloklangan</em>' : ''}</h3>
+    ${kv('ID', j.id)}${kv('Username', j.username ? '@' + esc(j.username) : '—')}${kv('Til', esc(j.lang || '—'))}${kv('Qo\'shilgan', esc(j.joined))}
+    ${kv('Yaratgan tadbirlar', j.created)}${kv('Bergan ovozlar', j.given)}${kv('Olgan ovozlar', j.received)}
+    ${kv('Shu qurilmada akkaunt', j.devices.length ? j.devices.length + ' ta' : '—')}
+    <div style="height:14px"></div>
+    <button class="btn ghost" onclick="tg&&tg.openTelegramLink?tg.openTelegramLink('tg://user?id=${j.id}'):location.href='tg://user?id=${j.id}'">💬 Profilga o'tish</button>
+    ${has('ban') && !j.staff ? `<button class="btn ${j.banned ? '' : 'danger'}" id="banBtn">${j.banned ? '✅ Blokdan chiqarish' : '⛔ Bloklash'}</button>` : ''}`);
+  const bb = $('#banBtn');
+  if (bb) bb.onclick = () => ask(j.banned ? 'Blokdan chiqarilsinmi?' : 'Foydalanuvchi bloklansinmi?', async () => {
+    if (await api('ban', { id: j.id, banned: !j.banned })) { toast('Bajarildi', 'ok'); closeSheet(); TAB === 'users' ? loadUsers(true) : go(TAB); }
+  });
+}
+
+/* ---------- kanallar ---------- */
+async function vChannels() {
+  view.innerHTML = '<div id="chl"></div><div class="card"><h3>➕ Majburiy kanal qo\'shish</h3><input class="inp" id="chi" placeholder="@kanal"><div id="chm"></div><button class="btn" id="cha">Ulash</button></div><p class="empty" style="padding:0;font-size:12.5px">Bot kanalda admin bo\'lishi kerak.</p>';
+  $('#cha').onclick = async () => {
+    const j = await api('channel_add', { channel: $('#chi').value }); if (!j) return;
+    $('#chm').innerHTML = j.added ? `<div class="msg ok">✅ Ulandi: ${esc(j.channel)}</div>` : `<div class="msg bad">❌ Ulanmadi<br>Sabab: <b>${esc(j.reason)}</b></div>`;
+    if (j.added) { $('#chi').value = ''; listChannels(); }
+  };
+  listChannels();
+}
+async function listChannels() {
+  const j = await api('channels'); if (!j) return; const el = $('#chl'); if (!el) return;
+  el.innerHTML = j.items.length ? j.items.map(c => `<div class="row" style="cursor:default"><div class="av">📢</div><div class="rt"><b>${esc(c.title || c.channel)}</b><span>${esc(c.channel)}</span></div>
+    <button class="tag bad" data-id="${c.id}" style="cursor:pointer;color:var(--bad)">🗑</button></div>`).join('') : '<p class="empty">Hozircha majburiy kanal yo\'q</p>';
+  el.querySelectorAll('button[data-id]').forEach(b => b.onclick = () => ask('Kanal o\'chirilsinmi?', async () => { if (await api('channel_del', { id: +b.dataset.id })) listChannels(); }));
+}
+
+/* ---------- xabar yuborish ---------- */
+function vBc() {
+  let target = 'users';
+  view.innerHTML = `<div class="seg" id="seg"><button data-t="users" class="on">👥 Foydalanuvchilar</button><button data-t="channels">📢 Kanallar</button><button data-t="all">Ikkalasi</button></div>
+    <textarea class="inp" id="bt" placeholder="Xabar matni…" maxlength="4000"></textarea><button class="btn" id="bs">✉️ Yuborish</button>
+    <p class="empty" style="padding:0;font-size:12.5px">Rasm/video yuborish uchun botdagi admin paneldan foydalaning.</p>`;
+  $('#seg').querySelectorAll('button').forEach(b => b.onclick = () => { target = b.dataset.t; $('#seg').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); });
+  $('#bs').onclick = () => {
+    const text = $('#bt').value.trim(); if (!text) return toast('Matn yozing', 'bad');
+    ask('Xabar yuborilsinmi?', async () => { const j = await api('broadcast', { target, text }); if (j) { toast(`Navbatga qo'yildi: ${j.queued} ta`, 'ok'); $('#bt').value = ''; } });
+  };
+}
+
+/* ---------- multi akkaunt ---------- */
+async function vMulti() {
+  view.innerHTML = '<p class="empty">Yuklanmoqda…</p>';
+  const j = await api('multi'); if (!j) return;
+  view.innerHTML = j.groups.length ? j.groups.map(g => `<div class="grp"><h3>🚨 Bitta qurilmada ${g.n} ta akkaunt</h3>${g.users.map(u => `<div class="kv" data-id="${u.id}" style="cursor:pointer">
+    <b>${esc(u.full_name || (u.username ? '@' + u.username : u.id))}</b><span>${u.banned ? '⛔ ' : ''}${u.id}</span></div>`).join('')}</div>`).join('') : '<p class="empty">Multi akkaunt topilmadi 🎉</p>';
+  view.querySelectorAll('.kv[data-id]').forEach(r => r.onclick = () => has('users') && openUser(+r.dataset.id));
+}
+
+/* ---------- adminlar (faqat ega) ---------- */
+async function vAdmins() {
+  view.innerHTML = '<p class="empty">Yuklanmoqda…</p>';
+  const j = await api('admins'); if (!j) return;
+  const form = (a) => `<div class="card"><h3>${a ? '✏️ Imkoniyatlarni o\'zgartirish' : '➕ Admin berish'}</h3>
+    <input class="inp" id="aid" inputmode="numeric" placeholder="Foydalanuvchi ID raqami" value="${a ? a.id : ''}" ${a ? 'disabled' : ''}>
+    ${Object.entries(ME.all_perms).map(([k, v]) => `<label class="sw">${esc(v)}<input type="checkbox" value="${k}" ${a && a.perms.includes(k) ? 'checked' : ''}><u></u></label>`).join('')}
+    <div style="height:8px"></div><button class="btn" id="asv">Saqlash</button></div>`;
+  view.innerHTML = form(null) + (j.items.length ? '<h3 style="margin:16px 4px 10px">Adminlar</h3>' : '') + j.items.map(a => `<div class="row" style="cursor:default;flex-wrap:wrap"><div class="av">🛡</div>
+    <div class="rt"><b>${esc(a.name || a.id)}</b><span>${a.username ? '@' + esc(a.username) + ' · ' : ''}${a.id}</span></div>
+    <button class="tag" data-e="${a.id}" style="cursor:pointer;color:var(--fg)">✏️</button><button class="tag" data-d="${a.id}" style="cursor:pointer;color:var(--bad)">🗑</button>
+    <div class="chips" style="width:100%;margin-top:8px">${a.perms.map(p => `<i>${esc(ME.all_perms[p])}</i>`).join('') || '<i>imkoniyat yo\'q</i>'}</div></div>`).join('');
+  const bind = () => $('#asv').onclick = async () => {
+    const id = parseInt($('#aid').value, 10); if (!id) return toast('ID raqamini kiriting', 'bad');
+    const perms = [...view.querySelectorAll('.card input[type=checkbox]:checked')].map(x => x.value);
+    const r = await api('admin_set', { id, perms }); if (!r) return;
+    if (!r.saved) return toast(r.reason, 'bad');
+    toast(r.new ? 'Admin qo\'shildi' : 'Saqlandi', 'ok'); vAdmins();
+  };
+  bind();
+  view.querySelectorAll('[data-e]').forEach(b => b.onclick = () => {
+    const a = j.items.find(x => x.id === +b.dataset.e); view.querySelector('.card').outerHTML = form(a); bind(); view.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+  view.querySelectorAll('[data-d]').forEach(b => b.onclick = () => ask('Admin olib tashlansinmi?', async () => { if (await api('admin_del', { id: +b.dataset.d })) { toast('Olib tashlandi', 'ok'); vAdmins(); } }));
+}
+
+/* ---------- jurnal (faqat ega) ---------- */
+let LP = 0;
+function vLog() {
+  view.innerHTML = '<div id="lg"></div><button class="btn ghost" id="lm" hidden>Yana ko\'rsatish</button>';
+  $('#lm').onclick = () => { LP++; loadLog(false); };
+  loadLog(true);
+}
+async function loadLog(reset) {
+  if (reset) LP = 0;
+  const j = await api('log', { page: LP }); if (!j) return;
+  const el = $('#lg'); if (!el) return;
+  if (reset) el.innerHTML = '';
+  el.insertAdjacentHTML('beforeend', j.items.map(i => `<div class="card" style="margin-bottom:8px"><div class="kv" style="border:0;padding:0 0 6px"><b>${esc(i.actor)}</b><span>${esc(i.time)}</span></div>
+    <div style="font-size:14px">${esc(i.action)} ${esc(i.target)} <span style="color:var(--muted)">${esc(i.details)}</span></div></div>`).join(''));
+  if (reset && !j.items.length) el.innerHTML = '<p class="empty">Jurnal bo\'sh</p>';
+  $('#lm').hidden = (LP + 1) * 20 >= j.total;
+}
+
+/* ---------- navigatsiya ---------- */
+const TABS = [['home', '🏠', 'Bosh', null, vHome], ['users', '👥', 'Odamlar', 'users', vUsers], ['channels', '📢', 'Kanal', 'channels', vChannels],
+  ['bc', '✉️', 'Xabar', 'broadcast', vBc], ['multi', '🚨', 'Multi', 'multi', vMulti], ['admins', '🛡', 'Adminlar', 'owner', vAdmins], ['log', '📜', 'Jurnal', 'owner', vLog]];
+function go(t) {
+  TAB = t;
+  $('#nav').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
+  view.scrollTop = 0; TABS.find(x => x[0] === t)[4]();
+  try { tg.HapticFeedback.selectionChanged(); } catch (e) {}
+}
+async function init() {
+  if (!tg || !tg.initData) { view.innerHTML = '<p class="empty">Bu sahifani Telegram ichidagi botdan oching.</p>'; $('#who').textContent = ''; return; }
+  const j = await api('me');
+  if (!j) { view.innerHTML = '<p class="empty">Ruxsat yo\'q yoki sessiya eskirgan.</p>'; $('#who').textContent = ''; return; }
+  ME = j; $('#who').textContent = j.name; $('#role').textContent = j.owner ? '👑 Ega' : '🛡 Admin';
+  $('#nav').innerHTML = TABS.filter(t => has(t[3])).map(t => `<button data-t="${t[0]}"><span>${t[1]}</span>${t[2]}</button>`).join('');
+  $('#nav').querySelectorAll('button').forEach(b => b.onclick = () => go(b.dataset.t));
+  go('home');
+}
+init();
+</script>
+</body>
+</html>
