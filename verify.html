@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Qurilmani tasdiqlash</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root { color-scheme: light dark; }
+  body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+         font-family: -apple-system, system-ui, Roboto, sans-serif; text-align:center;
+         background: var(--tg-theme-bg-color, #fff); color: var(--tg-theme-text-color, #111); }
+  .box { padding: 24px; max-width: 360px; }
+  .icon { font-size: 56px; margin-bottom: 12px; }
+  h1 { font-size: 20px; margin: 0 0 8px; }
+  p { margin: 0 0 14px; opacity: .75; font-size: 14px; line-height: 1.45; }
+  button { border:0; border-radius:12px; padding:12px 22px; font-size:16px; cursor:pointer;
+           background: var(--tg-theme-button-color, #2481cc); color: var(--tg-theme-button-text-color, #fff); }
+  .spin { width:34px; height:34px; border:4px solid rgba(128,128,128,.3); border-top-color: var(--tg-theme-button-color,#2481cc);
+          border-radius:50%; animation: s 0.9s linear infinite; margin: 0 auto 14px; }
+  @keyframes s { to { transform: rotate(360deg); } }
+  .hide { display:none; }
+</style>
+</head>
+<body>
+<div class="box">
+  <div id="spin" class="spin"></div>
+  <div id="icon" class="icon hide"></div>
+  <h1 id="title">Qurilma tekshirilmoqda…</h1>
+  <p id="text">Firibgarlikdan himoya uchun qurilma belgilari tekshiriladi. Faqat xesh (shifrlangan belgi) saqlanadi, shaxsiy ma’lumotlar emas.</p>
+  <button id="retry" class="hide">Qayta urinish</button>
+</div>
+<script>
+const tg = window.Telegram && window.Telegram.WebApp;
+if (tg) { tg.ready(); tg.expand(); }
+
+const $ = (id) => document.getElementById(id);
+function show(icon, title, text, retry) {
+  $("spin").classList.add("hide");
+  $("icon").classList.remove("hide"); $("icon").textContent = icon;
+  $("title").textContent = title; $("text").textContent = text;
+  $("retry").classList.toggle("hide", !retry);
+}
+
+async function sha256(str) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+function getDevId() {
+  let id = "";
+  try { id = localStorage.getItem("dvid") || ""; } catch (e) {}
+  if (!id) { const m = document.cookie.match(/(?:^|; )dvid=([^;]+)/); if (m) id = m[1]; }
+  if (!id) {
+    id = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2) + Date.now());
+  }
+  try { localStorage.setItem("dvid", id); } catch (e) {}
+  try { document.cookie = "dvid=" + id + "; max-age=31536000; path=/; SameSite=None; Secure"; } catch (e) {}
+  return id;
+}
+
+function canvasSig() {
+  try {
+    const c = document.createElement("canvas"); c.width = 220; c.height = 40;
+    const x = c.getContext("2d");
+    x.textBaseline = "top"; x.font = "16px Arial"; x.fillStyle = "#f60"; x.fillRect(10, 5, 90, 25);
+    x.fillStyle = "#069"; x.fillText("Ovoz Battle ✓ 123", 6, 8);
+    x.strokeStyle = "rgba(120,20,200,.6)"; x.arc(150, 20, 14, 0, Math.PI * 2); x.stroke();
+    return c.toDataURL();
+  } catch (e) { return "no-canvas"; }
+}
+
+function glSig() {
+  try {
+    const gl = document.createElement("canvas").getContext("webgl");
+    const ext = gl.getExtension("WEBGL_debug_renderer_info");
+    return ext ? gl.getParameter(ext.UNMASKED_VENDOR_WEBGL) + "/" + gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)
+               : gl.getParameter(gl.VENDOR) + "/" + gl.getParameter(gl.RENDERER);
+  } catch (e) { return "no-gl"; }
+}
+
+async function deviceFingerprint() {
+  const traits = [
+    screen.width, screen.height, screen.colorDepth, window.devicePixelRatio,
+    navigator.hardwareConcurrency || 0, navigator.deviceMemory || 0, navigator.maxTouchPoints || 0,
+    navigator.platform, (navigator.languages || [navigator.language]).join(","),
+    Intl.DateTimeFormat().resolvedOptions().timeZone, new Date().getTimezoneOffset(),
+    glSig(), canvasSig()
+  ].join("|");
+  return sha256(traits);
+}
+
+async function run() {
+  $("spin").classList.remove("hide"); $("icon").classList.add("hide"); $("retry").classList.add("hide");
+  $("title").textContent = "Qurilma tekshirilmoqda…";
+  try {
+    if (!tg || !tg.initData) throw new Error("Bu sahifa faqat Telegram ichida ochiladi.");
+    const payload = { initData: tg.initData, dev_id: getDevId(), fp: await deviceFingerprint() };
+    const r = await fetch("/api/verify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    let j = {};
+    try { j = await r.json(); } catch (e) {}
+    if (!r.ok || !j.ok) throw new Error("Tasdiqlab bo‘lmadi (" + r.status + (j.error ? ", " + j.error : "") + "). Qayta urinib ko‘ring.");
+    show("✅", "Qurilma tasdiqlandi", "Botga qayting. Amal davom ettiriladi.", false);
+    setTimeout(() => tg.close(), 900);
+  } catch (e) {
+    show("⚠️", "Xatolik", String(e.message || e), true);
+  }
+}
+$("retry").addEventListener("click", run);
+run();
+</script>
+</body>
+</html>

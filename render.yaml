@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: batl-bot
+    runtime: python
+    plan: starter          # Persistent Disk faqat pullik rejada bor
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot.py
+    healthCheckPath: /
+    disk:
+      name: botdata
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: DB_PATH
+        value: /data/bot.db
+      - key: BOT_TOKEN
+        sync: false        # Render panelida qo'lda kiriting
+      - key: ADMIN_IDS
+        sync: false        # masalan 123456789,987654321
+      - key: WEBAPP_URL
+        sync: false        # https://batl-bot.onrender.com
